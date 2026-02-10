@@ -5,7 +5,6 @@ import PlayBar from './bars/PlayBar.js'
 import EditBar from './bars/EditBar.js'
 import GuessBar from './bars/GuessBar.js'
 import AutoplayBar from './bars/AutoplayBar.js'
-import ScoringBar from './bars/ScoringBar.js'
 import FindBar from './bars/FindBar.js'
 
 import sabaki from '../modules/sabaki.js'
@@ -80,18 +79,10 @@ export default class MainView extends Component {
       currentPlayer,
       gameInfo,
 
-      deadStones,
-      scoringMethod,
-      scoreBoard,
       playVariation,
-      analysis,
-      analysisTreePosition,
-      areaMap,
       blockedGuesses,
 
       highlightVertices,
-      analysisType,
-      showAnalysis,
       showCoordinates,
       showMoveColorization,
       showMoveNumbers,
@@ -109,13 +100,9 @@ export default class MainView extends Component {
   ) {
     let node = gameTree.get(treePosition)
     let board = gametree.getBoard(gameTree, treePosition)
-    let komi = +gametree.getRootProperty(gameTree, 'KM', 0)
-    let handicap = +gametree.getRootProperty(gameTree, 'HA', 0)
     let paintMap
 
-    if (['scoring', 'estimator'].includes(mode)) {
-      paintMap = areaMap
-    } else if (mode === 'guess') {
+    if (mode === 'guess') {
       paintMap = [...Array(board.height)].map((_) => Array(board.width).fill(0))
 
       for (let [x, y] of blockedGuesses) {
@@ -137,17 +124,8 @@ export default class MainView extends Component {
           board,
           highlightVertices:
             findVertex && mode === 'find' ? [findVertex] : highlightVertices,
-          analysisType,
-          analysis:
-            showAnalysis &&
-            analysisTreePosition != null &&
-            analysisTreePosition === treePosition
-              ? analysis
-              : null,
           paintMap,
-          dimmedStones: ['scoring', 'estimator'].includes(mode)
-            ? deadStones
-            : [],
+          dimmedStones: [],
 
           crosshair: gobanCrosshair,
           showCoordinates,
@@ -175,15 +153,8 @@ export default class MainView extends Component {
         {id: 'bar'},
         h(PlayBar, {
           mode,
-          engineSyncers: [
-            this.props.blackEngineSyncerId,
-            this.props.whiteEngineSyncerId,
-          ].map((id) =>
-            this.props.attachedEngineSyncers.find((syncer) => syncer.id === id),
-          ),
           playerNames: gameInfo.playerNames,
           playerRanks: gameInfo.playerRanks,
-          playerCaptures: [1, -1].map((sign) => board.getCaptures(sign)),
           currentPlayer,
           showHotspot: node.data.HO != null,
           onCurrentPlayerClick: this.handleTogglePlayer,
@@ -205,26 +176,6 @@ export default class MainView extends Component {
           gameTree,
           gameCurrents: gameCurrents[gameIndex],
           treePosition,
-        }),
-
-        h(ScoringBar, {
-          type: 'scoring',
-          mode,
-          method: scoringMethod,
-          scoreBoard,
-          areaMap,
-          komi,
-          handicap,
-        }),
-
-        h(ScoringBar, {
-          type: 'estimator',
-          mode,
-          method: scoringMethod,
-          scoreBoard,
-          areaMap,
-          komi,
-          handicap,
         }),
 
         h(FindBar, {

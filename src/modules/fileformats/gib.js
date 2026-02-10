@@ -1,7 +1,6 @@
 import {readFileSync} from 'fs'
 import {decode} from 'iconv-lite'
 import {detect} from 'jschardet'
-import {fromDimensions} from '@sabaki/go-board'
 import {stringifyVertex} from '@sabaki/sgf'
 import i18n from '../../i18n.js'
 import * as gametree from '../gametree.js'
@@ -162,9 +161,20 @@ export function parse(content) {
           if (handicap >= 2 && handicap <= 9) {
             draft.updateProperty(rootId, 'HA', [handicap.toString()])
 
-            let points = fromDimensions(19, 19).getHandicapPlacement(handicap, {
-              tygem: true,
-            })
+            let near = 3
+            let far = 15
+            let mid = 9
+            let points = [
+              [near, far],
+              [far, near],
+              [near, near],
+              [far, far],
+              [near, mid],
+              [far, mid],
+              [mid, near],
+              [mid, far],
+              [mid, mid],
+            ].slice(0, handicap)
 
             for (let [x, y] of points) {
               let s = stringifyVertex([x, y])

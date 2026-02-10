@@ -88,34 +88,3 @@ export function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export function getScore(board, areaMap, {komi = 0, handicap = 0} = {}) {
-  let score = {
-    area: [0, 0],
-    territory: [0, 0],
-    captures: [1, -1].map((sign) => board.getCaptures(sign)),
-  }
-
-  for (let x = 0; x < board.width; x++) {
-    for (let y = 0; y < board.height; y++) {
-      let z = areaMap[y][x]
-      let index = z > 0 ? 0 : 1
-
-      score.area[index] += Math.abs(Math.sign(z))
-      if (board.get([x, y]) === 0)
-        score.territory[index] += Math.abs(Math.sign(z))
-    }
-  }
-
-  score.area = score.area.map(Math.round)
-  score.territory = score.territory.map(Math.round)
-
-  score.areaScore = score.area[0] - score.area[1] - komi - handicap
-  score.territoryScore =
-    score.territory[0] -
-    score.territory[1] +
-    score.captures[0] -
-    score.captures[1] -
-    komi
-
-  return score
-}

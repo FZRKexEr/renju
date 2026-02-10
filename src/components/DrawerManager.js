@@ -1,9 +1,7 @@
 import {h, Component} from 'preact'
 import sabaki from '../modules/sabaki.js'
-import {getRootProperty} from '../modules/gametree.js'
 
 import InfoDrawer from './drawers/InfoDrawer.js'
-import ScoreDrawer from './drawers/ScoreDrawer.js'
 import PreferencesDrawer from './drawers/PreferencesDrawer.js'
 import GameChooserDrawer from './drawers/GameChooserDrawer.js'
 import CleanMarkupDrawer from './drawers/CleanMarkupDrawer.js'
@@ -12,17 +10,6 @@ import AdvancedPropertiesDrawer from './drawers/AdvancedPropertiesDrawer.js'
 export default class DrawerManager extends Component {
   constructor() {
     super()
-
-    this.handleScoreSubmit = ({resultString}) => {
-      let gameTree = this.props.gameTrees[this.props.gameIndex]
-      let newTree = gameTree.mutate((draft) => {
-        draft.updateProperty(draft.root.id, 'RE', [resultString])
-      })
-
-      sabaki.setCurrentTreePosition(newTree, this.props.treePosition)
-      sabaki.closeDrawer()
-      setTimeout(() => sabaki.setMode('play'), 500)
-    }
 
     this.handleGameSelect = ({selectedTree}) => {
       sabaki.closeDrawer()
@@ -59,7 +46,6 @@ export default class DrawerManager extends Component {
   }
 
   render({
-    mode,
     openDrawer,
     gameTree,
     gameTrees,
@@ -68,15 +54,7 @@ export default class DrawerManager extends Component {
 
     gameInfo,
     currentPlayer,
-    attachedEngineSyncers,
-    blackEngineSyncerId,
-    whiteEngineSyncerId,
 
-    scoringMethod,
-    scoreBoard,
-    areaMap,
-
-    engines,
     graphGridSize,
     preferencesTab,
   }) {
@@ -88,15 +66,11 @@ export default class DrawerManager extends Component {
         gameTree,
         gameInfo,
         currentPlayer,
-        attachedEngineSyncers,
-        blackEngineSyncerId,
-        whiteEngineSyncerId,
       }),
 
       h(PreferencesDrawer, {
         show: openDrawer === 'preferences',
         tab: preferencesTab,
-        engines,
         graphGridSize,
       }),
 
@@ -119,18 +93,6 @@ export default class DrawerManager extends Component {
         show: openDrawer === 'advancedproperties',
         gameTree,
         treePosition,
-      }),
-
-      h(ScoreDrawer, {
-        show: openDrawer === 'score',
-        estimating: mode === 'estimator',
-        areaMap,
-        board: scoreBoard,
-        method: scoringMethod,
-        komi: +getRootProperty(gameTree, 'KM', 0),
-        handicap: +getRootProperty(gameTree, 'HA', 0),
-
-        onSubmitButtonClick: this.handleScoreSubmit,
       }),
     )
   }

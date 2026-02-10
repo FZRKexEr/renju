@@ -3,13 +3,10 @@ import {h, render, Component} from 'preact'
 import classNames from 'classnames'
 import fixPath from 'fix-path'
 
-import influence from '@sabaki/influence'
-
 import TripleSplitContainer from './helpers/TripleSplitContainer.js'
 import ThemeManager from './ThemeManager.js'
 import MainMenu from './MainMenu.js'
 import MainView from './MainView.js'
-import LeftSidebar from './LeftSidebar.js'
 import Sidebar from './Sidebar.js'
 import DrawerManager from './DrawerManager.js'
 import InputBox from './InputBox.js'
@@ -19,7 +16,6 @@ import InfoOverlay from './InfoOverlay.js'
 import i18n from '../i18n.js'
 import sabaki from '../modules/sabaki.js'
 import * as gametree from '../modules/gametree.js'
-import * as gtplogger from '../modules/gtplogger.js'
 import * as helper from '../modules/helper.js'
 
 const setting = {
@@ -31,8 +27,7 @@ const setting = {
 }
 const t = i18n.context('App')
 
-const leftSidebarMinWidth = setting.get('view.sidebar_minwidth')
-const sidebarMinWidth = setting.get('view.leftsidebar_minwidth')
+const sidebarMinWidth = setting.get('view.sidebar_minwidth')
 
 fixPath()
 const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
@@ -54,8 +49,6 @@ class App extends Component {
   }
 
   componentDidMount() {
-    gtplogger.updatePath()
-
     window.addEventListener('contextmenu', (evt) => {
       evt.preventDefault()
     })
@@ -94,9 +87,7 @@ class App extends Component {
 
     // Handle mouse wheel
 
-    for (let el of document.querySelectorAll(
-      '#main main, #graph, #winrategraph',
-    )) {
+    for (let el of document.querySelectorAll('#main main, #graph')) {
       el.addEventListener('wheel', (evt) => {
         evt.preventDefault()
 
@@ -190,11 +181,6 @@ class App extends Component {
 
       setTimeout(async () => {
         if (await sabaki.askForSave()) {
-          sabaki.detachEngines(
-            this.state.attachedEngineSyncers.map((syncer) => syncer.id),
-          )
-
-          gtplogger.close()
           this.closeWindow = true
           sabaki.window.close()
         }
@@ -225,39 +211,15 @@ class App extends Component {
       sabaki.window.autoHideMenuBar = !sabaki.state.showMenuBar
     }
 
-    // Handle bars & drawers
-
-    if (
-      ['estimator', 'scoring'].includes(prevState.mode) &&
-      sabaki.state.mode !== 'estimator' &&
-      sabaki.state.mode !== 'scoring' &&
-      sabaki.state.openDrawer === 'score'
-    ) {
-      sabaki.closeDrawer()
-    }
-
     // Handle sidebar showing/hiding
 
     let {showSidebar: prevShowSidebar} = sabaki.getInferredState(prevState)
 
-    if (
-      prevState.showLeftSidebar !== sabaki.state.showLeftSidebar ||
-      prevShowSidebar !== sabaki.inferredState.showSidebar
-    ) {
+    if (prevShowSidebar !== sabaki.inferredState.showSidebar) {
       let [width, height] = sabaki.window.getContentSize()
-      let widthDiff = 0
-
-      if (prevShowSidebar !== sabaki.inferredState.showSidebar) {
-        widthDiff +=
-          sabaki.state.sidebarWidth *
-          (sabaki.inferredState.showSidebar ? 1 : -1)
-      }
-
-      if (prevState.showLeftSidebar !== sabaki.state.showLeftSidebar) {
-        widthDiff +=
-          sabaki.state.leftSidebarWidth *
-          (sabaki.state.showLeftSidebar ? 1 : -1)
-      }
+      let widthDiff =
+        sabaki.state.sidebarWidth *
+        (sabaki.inferredState.showSidebar ? 1 : -1)
 
       if (
         !sabaki.window.isMaximized() &&
@@ -279,12 +241,9 @@ class App extends Component {
 
   // User Interface
 
-  handleMainLayoutSplitChange({beginSideSize, endSideSize}) {
+  handleMainLayoutSplitChange({endSideSize}) {
     sabaki.setState(
-      ({leftSidebarWidth, sidebarWidth, showLeftSidebar}) => ({
-        leftSidebarWidth: showLeftSidebar
-          ? Math.max(beginSideSize, leftSidebarMinWidth)
-          : leftSidebarWidth,
+      ({sidebarWidth}) => ({
         sidebarWidth: sabaki.inferredState.showSidebar
           ? Math.max(endSideSize, sidebarMinWidth)
           : sidebarWidth,
@@ -294,9 +253,7 @@ class App extends Component {
   }
 
   handleMainLayoutSplitFinish() {
-    setting
-      .set('view.sidebar_width', this.state.sidebarWidth)
-      .set('view.leftsidebar_width', this.state.leftSidebarWidth)
+    setting.set('view.sidebar_width', this.state.sidebarWidth)
   }
 
   // Render
@@ -305,35 +262,13 @@ class App extends Component {
     // Calculate some inferred values
 
     let inferredState = sabaki.inferredState
-    let tree = inferredState.gameTree
-    let scoreBoard, areaMap
 
-    if (['scoring', 'estimator'].includes(state.mode)) {
-      // Calculate area map
-
-      scoreBoard = gametree.getBoard(tree, state.treePosition).clone()
-
-      for (let vertex of state.deadStones) {
-        let sign = scoreBoard.get(vertex)
-        if (sign === 0) continue
-
-        scoreBoard.setCaptures(-sign, (x) => x + 1)
-        scoreBoard.set(vertex, 0)
-      }
-
-      areaMap =
-        state.mode === 'estimator'
-          ? influence.map(scoreBoard.signMap, {discrete: true})
-          : influence.areaMap(scoreBoard.signMap)
-    }
-
-    state = {...state, ...inferredState, scoreBoard, areaMap}
+    state = {...state, ...inferredState}
 
     return h(
       'section',
       {
         class: classNames({
-          showleftsidebar: state.showLeftSidebar,
           showsidebar: state.showSidebar,
           [state.mode]: true,
         }),
@@ -343,28 +278,23 @@ class App extends Component {
       h(MainMenu, {
         showMenuBar: state.showMenuBar,
         disableAll: state.busy > 0,
-        analysisType: state.analysisType,
-        showAnalysis: state.showAnalysis,
         showCoordinates: state.showCoordinates,
         coordinatesType: state.coordinatesType,
         showMoveNumbers: state.showMoveNumbers,
         showMoveColorization: state.showMoveColorization,
         showNextMoves: state.showNextMoves,
         showSiblings: state.showSiblings,
-        showWinrateGraph: state.showWinrateGraph,
         showGameGraph: state.showGameGraph,
         showCommentBox: state.showCommentBox,
-        showLeftSidebar: state.showLeftSidebar,
-        engineGameOngoing: state.engineGameOngoing,
       }),
 
       h(TripleSplitContainer, {
         id: 'mainlayout',
 
-        beginSideSize: state.showLeftSidebar ? state.leftSidebarWidth : 0,
+        beginSideSize: 0,
         endSideSize: state.showSidebar ? state.sidebarWidth : 0,
 
-        beginSideContent: h(LeftSidebar, state),
+        beginSideContent: null,
         mainContent: h(MainView, state),
         endSideContent: h(Sidebar, state),
 

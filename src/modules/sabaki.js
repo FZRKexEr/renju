@@ -5,22 +5,16 @@ import {ipcRenderer} from 'electron'
 import {h} from 'preact'
 import {v4 as uuid} from 'uuid'
 
-import Board from '@sabaki/go-board'
-import deadstones from '@sabaki/deadstones'
-import gtp from '@sabaki/gtp'
+import Board, {fromDimensions} from './gomoku-board.js'
 import sgf from '@sabaki/sgf'
 
 import i18n from '../i18n.js'
-import EngineSyncer from './enginesyncer.js'
 import * as dialog from './dialog.js'
 import * as fileformats from './fileformats/index.js'
 import * as gametree from './gametree.js'
 import * as gobantransformer from './gobantransformer.js'
-import * as gtplogger from './gtplogger.js'
 import * as helper from './helper.js'
 import * as sound from './sound.js'
-
-deadstones.useFetch('./node_modules/@sabaki/deadstones/wasm/deadstones_bg.wasm')
 
 const setting = {
   get: (key) => window.sabaki.setting.get(key),
@@ -60,19 +54,15 @@ class Sabaki extends EventEmitter {
       // Bars
 
       selectedTool: 'stone_1',
-      scoringMethod: null,
       findText: '',
       findVertex: null,
-      deadStones: [],
       blockedGuesses: [],
 
       // Goban
 
       highlightVertices: [],
       playVariation: null,
-      analysisType: null,
       coordinatesType: null,
-      showAnalysis: null,
       showCoordinates: null,
       showMoveColorization: null,
       showMoveNumbers: null,
@@ -84,26 +74,11 @@ class Sabaki extends EventEmitter {
 
       // Sidebar
 
-      consoleLog: [],
-      showLeftSidebar: setting.get('view.show_leftsidebar'),
-      leftSidebarWidth: setting.get('view.leftsidebar_width'),
-      showWinrateGraph: setting.get('view.show_winrategraph'),
       showGameGraph: setting.get('view.show_graph'),
       showCommentBox: setting.get('view.show_comments'),
       sidebarWidth: setting.get('view.sidebar_width'),
       graphGridSize: null,
       graphNodeSize: null,
-
-      // Engines
-
-      engines: null,
-      attachedEngineSyncers: [],
-      analyzingEngineSyncerId: null,
-      blackEngineSyncerId: null,
-      whiteEngineSyncerId: null,
-      engineGameOngoing: null,
-      analysisTreePosition: null,
-      analysis: null,
 
       // Drawers
 
@@ -124,7 +99,7 @@ class Sabaki extends EventEmitter {
 
     this.events = new EventEmitter()
     // App info will be set via IPC - use defaults initially
-    this.appName = 'Sabaki'
+    this.appName = 'Renju'
     this.version = ''
     this._initAppInfo()
 
@@ -279,18 +254,6 @@ class Sabaki extends EventEmitter {
       get board() {
         return gametree.getBoard(this.gameTree, state.treePosition)
       },
-      get analyzingEngineSyncer() {
-        return state.attachedEngineSyncers.find(
-          (syncer) => syncer.id === state.analyzingEngineSyncerId,
-        )
-      },
-      get winrateData() {
-        return [
-          ...this.gameTree.listCurrentNodes(
-            state.gameCurrents[state.gameIndex],
-          ),
-        ].map((x) => x.data.SBKV && x.data.SBKV[0])
-      },
     }
   }
 
@@ -301,8 +264,6 @@ class Sabaki extends EventEmitter {
   updateSettingState(key = null) {
     let data = {
       'app.zoom_factor': 'zoomFactor',
-      'board.analysis_type': 'analysisType',
-      'board.show_analysis': 'showAnalysis',
       'view.show_menubar': 'showMenuBar',
       'view.show_coordinates': 'showCoordinates',
       'view.show_move_colorization': 'showMoveColorization',
@@ -314,8 +275,6 @@ class Sabaki extends EventEmitter {
       'view.animated_stone_placement': 'animateStonePlacement',
       'graph.grid_size': 'graphGridSize',
       'graph.node_size': 'graphNodeSize',
-      'engines.list': 'engines',
-      'scoring.method': 'scoringMethod',
     }
 
     if (key == null) {
@@ -339,22 +298,7 @@ class Sabaki extends EventEmitter {
 
     let stateChange = {mode}
 
-    if (['scoring', 'estimator'].includes(mode)) {
-      // Guess dead stones
-
-      let {gameIndex, gameTrees, treePosition} = this.state
-      let iterations = setting.get('score.estimator_iterations')
-      let tree = gameTrees[gameIndex]
-
-      deadstones
-        .guess(gametree.getBoard(tree, treePosition).signMap, {
-          finished: mode === 'scoring',
-          iterations,
-        })
-        .then((result) => {
-          this.setState({deadStones: result})
-        })
-    } else if (mode === 'edit') {
+    if (mode === 'edit') {
       this.waitForRender().then(() => {
         let textarea = document.querySelector('#properties .edit textarea')
 
@@ -400,9 +344,6 @@ class Sabaki extends EventEmitter {
     this.hideInfoOverlayId = setTimeout(() => this.hideInfoOverlay(), duration)
   }
 
-  clearConsole() {
-    this.setState({consoleLog: []})
-  }
 
   // History Management
 
@@ -481,16 +422,12 @@ class Sabaki extends EventEmitter {
   // File Management
 
   getEmptyGameTree() {
-    let handicap = setting.get('game.default_handicap')
     let size = setting
       .get('game.default_board_size')
       .toString()
       .split(':')
       .map((x) => +x)
     let [width, height] = [size[0], size.slice(-1)[0]]
-    let handicapStones = Board.fromDimensions(width, height)
-      .getHandicapPlacement(handicap)
-      .map(sgf.stringifyVertex)
 
     let sizeInfo = width === height ? width.toString() : `${width}:${height}`
     let date = new Date()
@@ -500,20 +437,12 @@ class Sabaki extends EventEmitter {
 
     return gametree.new().mutate((draft) => {
       let rootData = {
-        GM: ['1'],
+        GM: ['4'],
         FF: ['4'],
         CA: ['UTF-8'],
         AP: [`${this.appName}:${this.version}`],
-        KM: [setting.get('game.default_komi')],
         SZ: [sizeInfo],
         DT: [dateInfo],
-      }
-
-      if (handicapStones.length > 0) {
-        Object.assign(rootData, {
-          HA: [handicap.toString()],
-          AB: handicapStones,
-        })
       }
 
       for (let prop in rootData) {
@@ -529,19 +458,7 @@ class Sabaki extends EventEmitter {
   } = {}) {
     if (!suppressAskForSave && !(await this.askForSave())) return
 
-    let [blackName, whiteName] = [
-      this.state.blackEngineSyncerId,
-      this.state.whiteEngineSyncerId,
-    ]
-      .map((id) =>
-        this.state.attachedEngineSyncers.find((syncer) => syncer.id === id),
-      )
-      .map((syncer) => (syncer == null ? null : syncer.engine.name))
-
-    let emptyTree = gametree.setGameInfo(this.getEmptyGameTree(), {
-      blackName,
-      whiteName,
-    })
+    let emptyTree = this.getEmptyGameTree()
 
     await this.loadGameTrees([emptyTree], {suppressAskForSave: true})
 
@@ -784,7 +701,7 @@ class Sabaki extends EventEmitter {
     for (let x = 0; x < width; x++) result.push('-', '-')
     result.push('-', '+', lb)
 
-    for (let vertex of board.getHandicapPlacement(9)) {
+    for (let vertex of board.getStarPoints()) {
       result[getIndexFromVertex(vertex)] = ','
     }
 
@@ -925,9 +842,7 @@ class Sabaki extends EventEmitter {
     if (['play', 'autoplay'].includes(this.state.mode)) {
       if (button === 0) {
         if (board.get(vertex) === 0) {
-          this.makeMove(vertex, {
-            generateEngineMove: this.state.engineGameOngoing == null,
-          })
+          this.makeMove(vertex)
         } else if (
           board.markers[vy][vx] != null &&
           board.markers[vy][vx].type === 'point' &&
@@ -943,48 +858,6 @@ class Sabaki extends EventEmitter {
           // Show annotation context menu
 
           this.openCommentMenu(treePosition, {x, y})
-        } else if (
-          this.state.analysis != null &&
-          this.state.analysisTreePosition === this.state.treePosition
-        ) {
-          // Show analysis context menu
-
-          let {sign, variations} = this.state.analysis
-          let variation = variations.find((x) =>
-            helper.vertexEquals(x.vertex, vertex),
-          )
-
-          if (variation != null) {
-            let maxVisitsWin = Math.max(
-              ...variations.map((x) => x.visits * x.winrate),
-            )
-            let strength =
-              Math.round(
-                (variation.visits * variation.winrate * 8) / maxVisitsWin,
-              ) + 1
-            let annotationProp =
-              strength >= 8
-                ? 'TE'
-                : strength >= 5
-                  ? 'IT'
-                  : strength >= 3
-                    ? 'DO'
-                    : 'BM'
-            let annotationValues = {BM: '1', DO: '', IT: '', TE: '1'}
-            let winrate =
-              Math.round(
-                (sign > 0 ? variation.winrate : 100 - variation.winrate) * 100,
-              ) / 100
-
-            this.openVariationMenu(sign, variation.moves, {
-              x,
-              y,
-              startNodeProperties: {
-                [annotationProp]: [annotationValues[annotationProp]],
-                SBKV: [winrate.toString()],
-              },
-            })
-          }
         }
       }
     } else if (this.state.mode === 'edit') {
@@ -1052,25 +925,6 @@ class Sabaki extends EventEmitter {
         this.useTool(tool, vertex)
         this.editVertexData = null
       }
-    } else if (['scoring', 'estimator'].includes(this.state.mode)) {
-      if (button !== 0 || board.get(vertex) === 0) return
-
-      let {mode, deadStones} = this.state
-      let dead = deadStones.some((v) => helper.vertexEquals(v, vertex))
-      let stones =
-        mode === 'estimator'
-          ? board.getChain(vertex)
-          : board.getRelatedChains(vertex)
-
-      if (!dead) {
-        deadStones = [...deadStones, ...stones]
-      } else {
-        deadStones = deadStones.filter(
-          (v) => !stones.some((w) => helper.vertexEquals(v, w)),
-        )
-      }
-
-      this.setState({deadStones})
     } else if (this.state.mode === 'find') {
       if (button !== 0) return
 
@@ -1133,69 +987,29 @@ class Sabaki extends EventEmitter {
     this.events.emit('vertexClick')
   }
 
-  async makeMove(vertex, {player = null, generateEngineMove = false} = {}) {
+  async makeMove(vertex, {player = null} = {}) {
     if (!['play', 'autoplay', 'guess'].includes(this.state.mode)) {
       this.closeDrawer()
       this.setMode('play')
     }
 
+    // Clear any previous win highlight
+    if (this.state.highlightVertices.length > 0) {
+      this.setState({highlightVertices: []})
+    }
+
     let t = i18n.context('sabaki.play')
     let {gameTrees, gameIndex, treePosition} = this.state
     let tree = gameTrees[gameIndex]
-    let node = tree.get(treePosition)
     let board = gametree.getBoard(tree, treePosition)
 
     if (!player) player = this.getPlayer(treePosition)
     if (typeof vertex == 'string') vertex = board.parseVertex(vertex)
 
-    let {pass, overwrite, capturing, suicide} = board.analyzeMove(
-      player,
-      vertex,
-    )
+    let {pass, overwrite} = board.analyzeMove(player, vertex)
     if (!pass && overwrite) return
 
-    let prev = tree.get(node.parentId)
     let color = player > 0 ? 'B' : 'W'
-    let ko = false
-
-    if (!pass) {
-      if (prev != null && setting.get('game.show_ko_warning')) {
-        let nextBoard = board.makeMove(player, vertex)
-        let prevBoard = gametree.getBoard(tree, prev.id)
-
-        ko = helper.equals(prevBoard.signMap, nextBoard.signMap)
-
-        if (ko) {
-          let answer = await dialog.showMessageBox(
-            t(
-              [
-                'You are about to play a move which repeats a previous board position.',
-                'This is invalid in some rulesets.',
-              ].join('\n'),
-            ),
-            'info',
-            [t('Play Anyway'), t("Don't Play")],
-            1,
-          )
-          if (answer !== 0) return
-        }
-      }
-
-      if (suicide && setting.get('game.show_suicide_warning')) {
-        let answer = await dialog.showMessageBox(
-          t(
-            [
-              'You are about to play a suicide move.',
-              'This is invalid in some rulesets.',
-            ].join('\n'),
-          ),
-          'info',
-          [t('Play Anyway'), t("Don't Play")],
-          1,
-        )
-        if (answer !== 0) return
-      }
-    }
 
     // Update data
 
@@ -1206,65 +1020,47 @@ class Sabaki extends EventEmitter {
       })
     })
 
-    let createNode = tree.get(nextTreePosition) == null
-
     this.setCurrentTreePosition(newTree, nextTreePosition)
 
     // Play sounds
 
     if (!pass) {
       sound.playPachi()
-      if (capturing || suicide) sound.playCapture()
-    } else {
-      sound.playPass()
     }
 
-    // Enter scoring mode after two consecutive passes
+    // Check for win (5 in a row)
 
-    let enterScoring = false
+    if (!pass) {
+      let newBoard = gametree.getBoard(newTree, nextTreePosition)
+      let winResult = newBoard.checkWin(vertex)
 
-    if (pass && createNode && prev != null) {
-      let prevColor = color === 'B' ? 'W' : 'B'
-      let prevPass =
-        node.data[prevColor] != null && node.data[prevColor][0] === ''
+      if (winResult) {
+        let {winner, line} = winResult
+        let winnerName = winner > 0 ? t('Black') : t('White')
 
-      if (prevPass) {
-        enterScoring = true
-        this.setMode('scoring')
+        // Highlight winning line
+        this.setState({highlightVertices: line})
+
+        // Record result in SGF
+        let resultStr = winner > 0 ? 'B+' : 'W+'
+        let updatedTree = newTree.mutate((draft) => {
+          draft.updateProperty(draft.root.id, 'RE', [resultStr])
+        })
+        this.setCurrentTreePosition(updatedTree, nextTreePosition)
+
+        await dialog.showMessageBox(
+          t((p) => `${p.winner} wins with 5 in a row!`, {winner: winnerName}),
+          'info',
+        )
+
+        // Clear highlight after dialog is dismissed
+        this.setState({highlightVertices: []})
       }
     }
 
     // Emit event
 
-    this.events.emit('moveMake', {pass, capturing, suicide, ko, enterScoring})
-
-    // Generate move
-
-    if (generateEngineMove && !enterScoring) {
-      this.generateMove(
-        player > 0
-          ? this.state.whiteEngineSyncerId
-          : this.state.blackEngineSyncerId,
-        nextTreePosition,
-      )
-    }
-  }
-
-  makeResign({player = null} = {}) {
-    let {gameTrees, gameIndex, treePosition} = this.state
-    let {currentPlayer} = this.inferredState
-    if (player == null) player = currentPlayer
-    let color = player > 0 ? 'W' : 'B'
-    let tree = gameTrees[gameIndex]
-
-    let newTree = tree.mutate((draft) => {
-      draft.updateProperty(draft.root.id, 'RE', [`${color}+Resign`])
-    })
-
-    this.makeMainVariation(treePosition)
-    this.makeMove([-1, -1], {player})
-
-    this.events.emit('resign', {player})
+    this.events.emit('moveMake')
   }
 
   useTool(tool, vertex, argument = null) {
@@ -1477,10 +1273,6 @@ class Sabaki extends EventEmitter {
 
     let navigated = treePosition !== this.state.treePosition
 
-    if (['scoring', 'estimator'].includes(this.state.mode) && navigated) {
-      this.setState({mode: 'play'})
-    }
-
     let {gameTrees, gameCurrents, blockedGuesses} = this.state
     let gameIndex = gameTrees.findIndex((t) => t.root.id === tree.root.id)
     let currents = gameCurrents[gameIndex]
@@ -1507,26 +1299,6 @@ class Sabaki extends EventEmitter {
     this.recordHistory({prevGameIndex, prevTreePosition})
 
     if (navigated) this.events.emit('navigate')
-
-    // Continuous analysis
-
-    let syncer = this.inferredState.analyzingEngineSyncer
-
-    if (
-      syncer != null &&
-      navigated &&
-      (this.state.engineGameOngoing == null ||
-        ![
-          this.state.blackEngineSyncerId,
-          this.state.whiteEngineSyncerId,
-        ].includes(this.state.analyzingEngineSyncerId))
-    ) {
-      clearTimeout(this.continuousAnalysisId)
-
-      this.continuousAnalysisId = setTimeout(() => {
-        this.analyzeMove(treePosition)
-      }, setting.get('game.navigation_analysis_delay'))
-    }
   }
 
   goStep(step) {
@@ -1740,512 +1512,6 @@ class Sabaki extends EventEmitter {
     this.autoscrollId = null
   }
 
-  // Engine Management
-
-  handleCommandSent({syncer, command, subscribe, getResponse}) {
-    let t = i18n.context('sabaki.engine')
-    let entry = {name: syncer.engine.name, command, waiting: true}
-    let maxLength = setting.get('console.max_history_count')
-
-    this.setState(({consoleLog}) => {
-      let newLog = consoleLog.slice(
-        Math.max(consoleLog.length - maxLength + 1, 0),
-      )
-      newLog.push(entry)
-
-      return {consoleLog: newLog}
-    })
-
-    let updateEntry = (update) => {
-      Object.assign(entry, update)
-      this.setState(({consoleLog}) => ({consoleLog}))
-    }
-
-    subscribe(({line, response, end}) => {
-      updateEntry({
-        response,
-        waiting: !end,
-      })
-
-      gtplogger.write({
-        type: 'stdout',
-        message: line,
-        engine: syncer.engine.name,
-      })
-    })
-
-    getResponse().catch((_) => {
-      gtplogger.write({
-        type: 'meta',
-        message: 'Connection Failed',
-        engine: syncer.engine.name,
-      })
-
-      updateEntry({
-        response: {
-          internal: true,
-          content: h('img', {
-            class: 'icon',
-            src: './node_modules/@primer/octicons/build/svg/alert.svg',
-            alt: t('Connection Failed'),
-            title: t('Connection Failed'),
-          }),
-        },
-        waiting: false,
-      })
-    })
-  }
-
-  attachEngines(engines) {
-    let attaching = []
-    let getEngineName = (name) => {
-      let counter = 1
-      let getName = () => (counter === 1 ? name : `${name} ${counter}`)
-      let hasName = (syncer) => syncer.engine.name === getName()
-
-      while (
-        attaching.some(hasName) ||
-        this.state.attachedEngineSyncers.some(hasName)
-      ) {
-        counter++
-      }
-
-      return getName()
-    }
-
-    for (let engine of engines) {
-      engine = {...engine, name: getEngineName(engine.name)}
-
-      let syncer = new EngineSyncer(engine)
-
-      syncer.on('analysis-update', () => {
-        if (this.state.analyzingEngineSyncerId === syncer.id) {
-          // Update analysis info
-
-          this.setState({
-            analysis: syncer.analysis,
-            analysisTreePosition: syncer.treePosition,
-          })
-
-          if (syncer.analysis != null && syncer.treePosition != null) {
-            let tree = this.state.gameTrees[this.state.gameIndex]
-            let {sign, winrate} = syncer.analysis
-            if (sign < 0) winrate = 100 - winrate
-
-            let newTree = tree.mutate((draft) => {
-              draft.updateProperty(syncer.treePosition, 'SBKV', [
-                (Math.round(winrate * 100) / 100).toString(),
-              ])
-            })
-
-            this.setCurrentTreePosition(newTree, this.state.treePosition)
-          }
-        }
-      })
-
-      syncer.controller.on('command-sent', (evt) => {
-        gtplogger.write({
-          type: 'stdin',
-          message: gtp.Command.toString(evt.command),
-          engine: engine.name,
-        })
-
-        this.handleCommandSent({syncer, ...evt})
-      })
-
-      syncer.controller.on('stderr', ({content}) => {
-        gtplogger.write({
-          type: 'stderr',
-          message: content,
-          engine: engine.name,
-        })
-
-        this.setState(({consoleLog}) => {
-          let lastIndex = consoleLog.length - 1
-          let lastEntry = consoleLog[lastIndex]
-
-          if (
-            lastEntry != null &&
-            lastEntry.name === engine.name &&
-            lastEntry.command == null &&
-            lastEntry.response != null &&
-            lastEntry.response.internal &&
-            typeof lastEntry.response.content === 'string'
-          ) {
-            lastEntry.response = {
-              ...lastEntry.response,
-              content: `${lastEntry.response.content}\n${content}`,
-            }
-
-            return {consoleLog}
-          } else {
-            return {
-              consoleLog: [
-                ...consoleLog,
-                {
-                  name: engine.name,
-                  command: null,
-                  response: {content, internal: true},
-                },
-              ],
-            }
-          }
-        })
-      })
-
-      syncer.controller.on('started', () => {
-        gtplogger.write({
-          type: 'meta',
-          message: 'Engine Started',
-          engine: engine.name,
-        })
-      })
-
-      syncer.controller.on('stopped', () => {
-        gtplogger.write({
-          type: 'meta',
-          message: 'Engine Stopped',
-          engine: engine.name,
-        })
-      })
-
-      syncer.controller.start()
-
-      attaching.push(syncer)
-    }
-
-    this.setState(({attachedEngineSyncers}) => ({
-      attachedEngineSyncers: [...attachedEngineSyncers, ...attaching],
-    }))
-
-    return attaching
-  }
-
-  async detachEngines(syncerIds) {
-    let detachEngineSyncers = this.state.attachedEngineSyncers.filter(
-      (syncer) => syncerIds.includes(syncer.id),
-    )
-
-    await Promise.all(
-      detachEngineSyncers.map(async (syncer) => {
-        await this.stopEngineGame()
-        await syncer.stop()
-
-        let unset = (syncerId) => (syncerId === syncer.id ? null : syncerId)
-
-        if (this.lastAnalyzingEngineSyncerId === syncer.id) {
-          this.lastAnalyzingEngineSyncerId = null
-        }
-
-        this.setState((state) => ({
-          attachedEngineSyncers: state.attachedEngineSyncers.filter(
-            (s) => s.id !== syncer.id,
-          ),
-          engineGameOngoing:
-            state.engineGameOngoing &&
-            [state.blackEngineSyncerId, state.whiteEngineSyncerId].includes(
-              syncer.id,
-            )
-              ? false
-              : state.engineGameOngoing,
-          blackEngineSyncerId: unset(state.blackEngineSyncerId),
-          whiteEngineSyncerId: unset(state.whiteEngineSyncerId),
-          analyzingEngineSyncerId: unset(state.analyzingEngineSyncerId),
-        }))
-      }),
-    )
-  }
-
-  async syncEngine(syncerId, treePosition) {
-    let syncer = this.state.attachedEngineSyncers.find(
-      (syncer) => syncer.id === syncerId,
-    )
-
-    if (syncer != null) {
-      try {
-        await syncer.sync(this.inferredState.gameTree, treePosition)
-        return true
-      } catch (err) {
-        await dialog.showMessageBox(err.message, 'error')
-      }
-    }
-
-    return false
-  }
-
-  async generateMove(syncerId, treePosition, {commit = () => true} = {}) {
-    let t = i18n.context('sabaki.engine')
-    let sign = this.getPlayer(treePosition)
-    let color = sign > 0 ? 'B' : 'W'
-    let syncer = this.state.attachedEngineSyncers.find(
-      (syncer) => syncer.id === syncerId,
-    )
-    if (syncer == null) return
-
-    let synced = await this.syncEngine(syncerId, treePosition)
-    if (!synced) return
-
-    let {gameTree: tree, board} = this.inferredState
-    let coord
-    try {
-      let commandName =
-        setting
-          .get('engines.gemove_analyze_commands')
-          .find((x) => syncer.commands.includes(x)) || 'genmove'
-
-      if (commandName === 'genmove') {
-        let response = await syncer.queueCommand({
-          name: commandName,
-          args: [color],
-        })
-
-        if (response == null || response.error) throw new Error()
-
-        coord = response.content
-      } else {
-        let interval = setting.get('board.analysis_interval').toString()
-
-        coord = await new Promise(async (resolve) => {
-          await syncer.queueCommand(
-            {name: commandName, args: [color, interval]},
-            ({line}) => {
-              if (!line.startsWith('play ')) return
-              resolve(line.slice('play '.length))
-            },
-          )
-
-          resolve()
-        })
-      }
-    } catch (err) {
-      await dialog.showMessageBox(
-        t((p) => `${p.engine} has failed to generate a move.`, {
-          engine: syncer.engine.name,
-        }),
-        'error',
-      )
-    }
-
-    if (coord == null) return
-    coord = coord.toLowerCase().trim()
-
-    if (coord === 'resign') {
-      await dialog.showMessageBox(
-        t((p) => `${p.engine} has resigned.`, {
-          engine: syncer.engine.name,
-        }),
-        'info',
-      )
-    }
-
-    let vertex = ['resign', 'pass'].includes(coord)
-      ? [-1, -1]
-      : board.parseVertex(coord)
-    let currentTree = this.inferredState.gameTree
-    let currentTreePosition = this.state.treePosition
-    let positionMoved =
-      currentTree.root.id !== tree.root.id ||
-      currentTreePosition !== treePosition
-    let resign = coord === 'resign'
-    let {pass, capturing, suicide} = board.analyzeMove(sign, vertex)
-
-    let newTreePosition
-    let newTree = currentTree.mutate((draft) => {
-      newTreePosition = draft.appendNode(treePosition, {
-        [color]: [sgf.stringifyVertex(vertex)],
-      })
-
-      if (coord === 'resign') {
-        draft.updateProperty(draft.root.id, 'RE', [
-          `${sign > 0 ? 'W' : 'B'}+Resign`,
-        ])
-
-        let id2 = treePosition
-        while (id2 != null) {
-          draft.shiftNode(id2, 'main')
-          id2 = draft.get(id2).parentId
-        }
-      }
-    })
-
-    if (newTreePosition == null || !commit()) return
-
-    if (pass) {
-      sound.playPass()
-    } else {
-      sound.playPachi()
-      if (capturing || suicide) sound.playCapture()
-    }
-
-    this.setCurrentTreePosition(
-      newTree,
-      !positionMoved ? newTreePosition : currentTreePosition,
-    )
-
-    syncer.treePosition = newTreePosition
-
-    return {
-      tree: newTree,
-      treePosition: newTreePosition,
-      resign,
-      pass,
-    }
-  }
-
-  async startEngineGame(treePosition) {
-    let t = i18n.context('sabaki.engine')
-    let {engineGameOngoing, attachedEngineSyncers} = this.state
-    let engineCount = attachedEngineSyncers.length
-    if (engineGameOngoing != null) return
-
-    if (engineCount === 0) {
-      await dialog.showMessageBox(
-        t('Please attach one or more engines first.'),
-        'info',
-      )
-
-      return
-    } else {
-      this.setState((state) => ({
-        blackEngineSyncerId:
-          state.blackEngineSyncerId == null
-            ? state.attachedEngineSyncers[0].id
-            : state.blackEngineSyncerId,
-        whiteEngineSyncerId:
-          state.whiteEngineSyncerId == null
-            ? state.attachedEngineSyncers[1 % engineCount].id
-            : state.whiteEngineSyncerId,
-      }))
-    }
-
-    let gameId = uuid()
-    this.setState({engineGameOngoing: gameId})
-
-    let consecutivePasses = 0
-
-    while (this.state.engineGameOngoing === gameId) {
-      let syncerId =
-        this.getPlayer(treePosition) > 0
-          ? this.state.blackEngineSyncerId
-          : this.state.whiteEngineSyncerId
-
-      let move = await this.generateMove(syncerId, treePosition, {
-        commit: () => this.state.engineGameOngoing,
-      })
-
-      if (move == null || move.resign) {
-        break
-      }
-
-      if (move.pass) {
-        consecutivePasses++
-      } else {
-        consecutivePasses = 0
-      }
-
-      if (consecutivePasses >= 2) {
-        break
-      }
-
-      treePosition = move.treePosition
-    }
-
-    this.stopEngineGame(gameId)
-  }
-
-  async stopEngineGame(gameId = null) {
-    if (this.state.engineGameOngoing == null) return
-
-    this.setState((state) => ({
-      engineGameOngoing:
-        gameId == null || state.engineGameOngoing === gameId
-          ? null
-          : state.engineGameOngoing,
-    }))
-
-    let syncer = this.inferredState.analyzingEngineSyncer
-    if (syncer == null) return
-  }
-
-  async startStopEngineGame(treePosition) {
-    if (this.state.engineGameOngoing != null) {
-      this.stopEngineGame()
-    } else {
-      this.startEngineGame(treePosition)
-    }
-  }
-
-  async analyzeMove(treePosition) {
-    let sign = this.getPlayer(treePosition)
-    let color = sign > 0 ? 'B' : 'W'
-    let syncer = this.inferredState.analyzingEngineSyncer
-    if (syncer == null || syncer.suspended) return
-
-    let synced = await this.syncEngine(syncer.id, treePosition)
-    if (!synced) return
-
-    let commandName = setting
-      .get('engines.analyze_commands')
-      .find((x) => syncer.commands.includes(x))
-    if (commandName == null) return
-
-    let interval = setting.get('board.analysis_interval').toString()
-
-    try {
-      syncer.queueCommand({
-        name: commandName,
-        args: [color, interval],
-      })
-    } catch (err) {}
-  }
-
-  async startAnalysis(syncerId) {
-    if (this.state.analyzingEngineSyncerId === syncerId) return
-
-    let t = i18n.context('sabaki.engine')
-    let syncer = this.state.attachedEngineSyncers.find(
-      (syncer) => syncer.id === syncerId,
-    )
-
-    if (syncer == null) return
-
-    if (
-      setting
-        .get('engines.analyze_commands')
-        .every((command) => !syncer.commands.includes(command))
-    ) {
-      await dialog.showMessageBox(
-        t('The selected engine does not support analysis.'),
-        'warning',
-      )
-      return
-    }
-
-    this.lastAnalyzingEngineSyncerId = syncerId
-    this.setState({analyzingEngineSyncerId: syncerId})
-
-    if (
-      !this.state.engineGameOngoing ||
-      (this.state.blackEngineSyncerId !== syncerId &&
-        this.state.whiteEngineSyncerId !== syncerId)
-    ) {
-      this.analyzeMove(this.state.treePosition)
-    }
-  }
-
-  stopAnalysis() {
-    let syncer = this.inferredState.analyzingEngineSyncer
-
-    if (syncer != null) {
-      syncer.sendAbort()
-    }
-
-    this.setState({
-      analysis: null,
-      analysisTreePosition: null,
-      analyzingEngineSyncerId: null,
-    })
-  }
 
   // Find Methods
 
@@ -2331,17 +1597,6 @@ class Sabaki extends EventEmitter {
       setting.set('game.default_board_size', data.size.join(':'))
     }
 
-    if (data.komi && data.komi.toString() !== '') {
-      setting.set('game.default_komi', isNaN(data.komi) ? 0 : +data.komi)
-    }
-
-    if (data.handicap && data.handicap.toString() !== '') {
-      setting.set(
-        'game.default_handicap',
-        isNaN(data.handicap) ? 0 : +data.handicap,
-      )
-    }
-
     this.setCurrentTreePosition(newTree, this.state.treePosition)
   }
 
@@ -2352,7 +1607,7 @@ class Sabaki extends EventEmitter {
       ? data.PL[0] === 'W'
         ? -1
         : 1
-      : data.B != null || (data.HA != null && +data.HA[0] >= 1)
+      : data.B != null
         ? -1
         : 1
   }
@@ -2361,7 +1616,7 @@ class Sabaki extends EventEmitter {
     let newTree = this.inferredState.gameTree.mutate((draft) => {
       let node = draft.get(treePosition)
       let intendedSign =
-        node.data.B != null || (node.data.HA != null && +node.data.HA[0] >= 1)
+        node.data.B != null
           ? -1
           : +(node.data.W != null)
 
@@ -2903,124 +2158,6 @@ class Sabaki extends EventEmitter {
             })
 
             this.setCurrentTreePosition(newTree, treePosition)
-          },
-        },
-      ],
-      x,
-      y,
-    )
-  }
-
-  openEnginesMenu({x, y} = {}) {
-    let t = i18n.context('menu.engines')
-    let engines = setting.get('engines.list')
-
-    helper.popupMenu(
-      [
-        ...engines.map((engine) => ({
-          label: engine.name || t('(Unnamed Engine)'),
-          click: () => {
-            this.attachEngines([engine])
-          },
-        })),
-        engines.length > 0 && {type: 'separator'},
-        {
-          label: t('Manage &Engines…'),
-          click: () => {
-            this.setState({preferencesTab: 'engines'})
-            this.openDrawer('preferences')
-          },
-        },
-      ].filter((x) => !!x),
-      x,
-      y,
-    )
-  }
-
-  openEngineActionMenu(syncerId, {x, y} = {}) {
-    let t = i18n.context('menu.engineAction')
-    let syncer = this.state.attachedEngineSyncers.find(
-      (syncer) => syncer.id === syncerId,
-    )
-    if (syncer == null) return
-
-    helper.popupMenu(
-      [
-        {
-          label: syncer.suspended ? t('&Start') : t('&Stop'),
-          click: () => {
-            if (syncer.suspended) syncer.start()
-            else syncer.stop()
-          },
-        },
-        {
-          label: t('&Detach'),
-          click: () => {
-            this.detachEngines([syncerId])
-          },
-        },
-        {type: 'separator'},
-        {
-          label: t('S&ynchronize'),
-          click: () => {
-            this.syncEngine(syncerId, this.state.treePosition)
-          },
-        },
-        {
-          label: t('&Generate Move'),
-          enabled:
-            !this.state.engineGameOngoing ||
-            (this.state.blackEngineSyncerId !== syncerId &&
-              this.state.whiteEngineSyncerId !== syncerId),
-          click: async () => {
-            this.generateMove(syncerId, this.state.treePosition)
-          },
-        },
-        {type: 'separator'},
-        {
-          label: t('Set as &Analyzer'),
-          type: 'checkbox',
-          checked: this.state.analyzingEngineSyncerId === syncerId,
-          click: () => {
-            if (this.state.analyzingEngineSyncerId === syncerId) {
-              this.stopAnalysis()
-            } else {
-              this.startAnalysis(syncerId)
-            }
-          },
-        },
-        {
-          label: t('Set as &Black Player'),
-          type: 'checkbox',
-          checked: this.state.blackEngineSyncerId === syncerId,
-          click: () => {
-            this.setState((state) => ({
-              blackEngineSyncerId:
-                state.blackEngineSyncerId === syncerId ? null : syncerId,
-            }))
-          },
-        },
-        {
-          label: t('Set as &White Player'),
-          type: 'checkbox',
-          checked: this.state.whiteEngineSyncerId === syncerId,
-          click: () => {
-            this.setState((state) => ({
-              whiteEngineSyncerId:
-                state.whiteEngineSyncerId === syncerId ? null : syncerId,
-            }))
-          },
-        },
-        {type: 'separator'},
-        {
-          label: t('&Go to Engine'),
-          click: () => {
-            if (syncer.treePosition != null) {
-              this.setCurrentTreePosition(
-                this.state.gameTrees[this.state.gameIndex],
-                syncer.treePosition,
-              )
-            }
           },
         },
       ],

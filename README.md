@@ -1,90 +1,59 @@
-# ![Sabaki: An elegant Go/Baduk/Weiqi board and SGF editor for a more civilized age.](./banner.png)
+# Renju
 
-[![Download the latest release](https://img.shields.io/github/downloads/SabakiHQ/Sabaki/latest/total?label=download)](https://github.com/SabakiHQ/Sabaki/releases)
-[![CI](https://github.com/SabakiHQ/Sabaki/workflows/CI/badge.svg?branch=master&event=push)](https://github.com/SabakiHQ/Sabaki/actions)
-[![Donate](https://img.shields.io/badge/donate-paypal-blue.svg)](https://www.paypal.me/yishn/5)
+A beautiful Gomoku (Five in a Row / 五子棋) board and SGF editor, built with Electron and Preact.
+
+Based on [Sabaki](https://github.com/SabakiHQ/Sabaki), an elegant Go board editor.
 
 ## Features
 
+- Default 15x15 board, configurable from 5 to 25
+- Win detection: exactly 5 stones in a row wins
 - Fuzzy stone placement
-- Read and save SGF games and collections, open wBaduk NGF and Tygem GIB files
-- Display formatted SGF comments using a
-  [subset of Markdown](https://github.com/SabakiHQ/Sabaki/blob/master/docs/guides/markdown.md)
-  and annotate board positions & moves
-- Personalize board appearance with
-  [textures & themes](https://github.com/SabakiHQ/Sabaki/blob/master/docs/guides/theme-directory.md)
+- Read and save SGF games (GM[4]) and collections
+- Open wBaduk NGF and Tygem GIB files
+- Display formatted SGF comments using Markdown
+- Personalize board appearance with textures & themes
 - SGF editing tools, including lines & arrows board markup
 - Copy & paste variations
 - Powerful undo/redo
 - Fast game tree
-- Score estimator & scoring tool
 - Find move by move position and comment text
-- [GTP engines](https://github.com/SabakiHQ/Sabaki/blob/master/docs/guides/engines.md)
-  support with
-  [board analysis for supported engines](https://github.com/SabakiHQ/Sabaki/blob/master/docs/guides/engine-analysis-integration.md)
 - Guess mode
 - Autoplay games
 
 ![Screenshot](screenshot.png)
 
-## Documentation
+## Building & Development
 
-For more information visit the
-[documentation](https://github.com/SabakiHQ/Sabaki/blob/master/docs/README.md).
-You're welcome to
-[contribute](https://github.com/SabakiHQ/Sabaki/blob/master/CONTRIBUTING.md) to
-this project.
+```bash
+npm install          # Install dependencies
+npm run watch        # Watch and bundle files
+npm start            # Start in development mode
+npm run bundle       # Bundle for production
+npm run test         # Run tests
+```
 
-## Building & Tests
+For platform-specific builds:
 
-See
-[Building & Tests](https://github.com/SabakiHQ/Sabaki/blob/master/docs/guides/building-tests.md)
-in the documentation.
+```bash
+npm run dist:macos   # macOS installer
+npm run dist:linux   # Linux installer
+npm run dist:win64   # Windows 64-bit installer
+```
 
 ## License
 
-This project is licensed under the
-[MIT license](https://github.com/SabakiHQ/Sabaki/blob/master/LICENSE.md).
+This project is licensed under the [MIT license](LICENSE.md).
 
-## Donators
+## Acknowledgments
 
-A big thank you to these lovely people:
-
-- Eric Wainwright
-- Michael Noll
-- John Hager
-- Azim Palmer
-- Nicolas Puyaubreau
-- Hans Christian Poerschke
-- David Göbel
-- Dominik Olszewski
-- Brian Weaver
-- Philippe Fanaro
-- James Tudor
-- Frank Orben
-- Dekun Song
-- Dimitri Rusin
-- Andrew Thieman
-- Adrian Petrescu
-- Karlheinz Agsteiner
-- Petr Růžička
-- Sergio Villegas
-- Jake Pivnik
+Renju is based on [Sabaki](https://github.com/SabakiHQ/Sabaki) by Yichuan Shen.
 
 ## Related
 
 - [Shudan](https://github.com/SabakiHQ/Shudan) - A highly customizable,
   low-level Preact Goban component.
-- [boardmatcher](https://github.com/SabakiHQ/boardmatcher) - Finds patterns &
-  shapes in Go board arrangements and names moves.
-- [deadstones](https://github.com/SabakiHQ/deadstones) - Simple Monte Carlo
-  functions to determine dead stones.
-- [go-board](https://github.com/SabakiHQ/go-board) - A Go board data type.
-- [gtp](https://github.com/SabakiHQ/gtp) - A Node.js module for handling GTP
-  engines.
 - [immutable-gametree](https://github.com/SabakiHQ/immutable-gametree) - An
   immutable game tree data type.
-- [influence](https://github.com/SabakiHQ/influence) - Simple heuristics for
-  estimating influence maps on Go positions.
 - [sgf](https://github.com/SabakiHQ/sgf) - A library for parsing and creating
   SGF files.

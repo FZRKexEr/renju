@@ -27,7 +27,7 @@ export default class MiniGoban extends Component {
 
       // Draw hoshi points
 
-      board.getHandicapPlacement(9).map(([x, y]) =>
+      board.getStarPoints().map(([x, y]) =>
         h('circle', {
           cx: x * fieldSize + radius + 1,
           cy: y * fieldSize + radius + 1,

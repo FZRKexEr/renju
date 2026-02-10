@@ -3,7 +3,7 @@ const nativeRequire = eval('require')
 const {shell, clipboard} = require('electron')
 const isRenderer = typeof window !== 'undefined' && window.sabaki != null
 const {app} = isRenderer
-  ? {app: {name: 'Sabaki', getVersion: () => ''}}
+  ? {app: {name: 'Renju', getVersion: () => ''}}
   : require('electron')
 
 const i18n = require('./i18n')
@@ -29,19 +29,14 @@ exports.get = function (props = {}) {
   let {
     disableAll,
     disableGameLoading,
-    analysisType,
-    showAnalysis,
     showCoordinates,
     coordinatesType,
     showMoveNumbers,
     showMoveColorization,
     showNextMoves,
     showSiblings,
-    showWinrateGraph,
     showGameGraph,
     showCommentBox,
-    showLeftSidebar,
-    engineGameOngoing,
   } = props
 
   let data = [
@@ -147,32 +142,6 @@ exports.get = function (props = {}) {
 
             sabaki.clickVertex(value)
           },
-        },
-        {
-          label: i18n.t('menu.play', '&Pass'),
-          accelerator: 'CmdOrCtrl+P',
-          click: () => sabaki.makeMove([-1, -1]),
-        },
-        {
-          label: i18n.t('menu.play', 'Resig&n'),
-          click: () => sabaki.makeResign(),
-        },
-        {type: 'separator'},
-        {
-          label: i18n.t('menu.play', '&Estimate'),
-          accelerator: 'CmdOrCtrl+Shift+E',
-          click: () =>
-            sabaki.setMode(
-              sabaki.state.mode === 'estimator' ? 'play' : 'estimator',
-            ),
-        },
-        {
-          label: i18n.t('menu.play', 'Sco&re'),
-          accelerator: 'CmdOrCtrl+Shift+R',
-          click: () =>
-            sabaki.setMode(
-              sabaki.state.mode === 'scoring' ? 'play' : 'scoring',
-            ),
         },
       ],
     },
@@ -455,89 +424,6 @@ exports.get = function (props = {}) {
       ],
     },
     {
-      id: 'engines',
-      label: i18n.t('menu.engines', 'Eng&ines'),
-      submenu: [
-        {
-          label: i18n.t('menu.engines', 'Show &Engines Sidebar'),
-          type: 'checkbox',
-          checked: !!showLeftSidebar,
-          click: () => {
-            toggleSetting('view.show_leftsidebar')
-            sabaki.setState(({showLeftSidebar}) => ({
-              showLeftSidebar: !showLeftSidebar,
-            }))
-          },
-        },
-        {type: 'separator'},
-        {
-          label: i18n.t('menu.engines', 'Toggle &Analysis'),
-          accelerator: 'F4',
-          click: () => {
-            let syncerId =
-              sabaki.lastAnalyzingEngineSyncerId ||
-              sabaki.state.attachedEngineSyncers
-                .filter((syncer) =>
-                  syncer.commands.some((x) =>
-                    setting.get('engines.analyze_commands').includes(x),
-                  ),
-                )
-                .map((syncer) => syncer.id)[0]
-
-            if (syncerId == null) {
-              dialog.showMessageBox(
-                i18n.t(
-                  'menu.engines',
-                  'None of the attached engines support analysis.',
-                ),
-                'info',
-              )
-              return
-            }
-
-            if (sabaki.state.analyzingEngineSyncerId == null) {
-              sabaki.startAnalysis(syncerId)
-            } else {
-              sabaki.stopAnalysis()
-            }
-          },
-        },
-        {
-          label: !engineGameOngoing
-            ? i18n.t('menu.engines', 'Start Engine vs. Engine &Game')
-            : i18n.t('menu.engines', 'Stop Engine vs. Engine &Game'),
-          accelerator: 'F5',
-          click: () => {
-            sabaki.startStopEngineGame(sabaki.state.treePosition)
-          },
-        },
-        {
-          label: i18n.t('menu.engines', 'Generate &Move'),
-          accelerator: 'F10',
-          enabled: !engineGameOngoing,
-          click: () => {
-            let sign = sabaki.getPlayer(sabaki.state.treePosition)
-            let syncerId =
-              sign > 0
-                ? sabaki.state.blackEngineSyncerId
-                : sabaki.state.whiteEngineSyncerId
-
-            if (syncerId == null) {
-              dialog.showMessageBox(
-                i18n.t(
-                  'menu.engines',
-                  'Please assign an engine to the player first.',
-                ),
-                'info',
-              )
-            }
-
-            sabaki.generateMove(syncerId, sabaki.state.treePosition)
-          },
-        },
-      ],
-    },
-    {
       id: 'tools',
       label: i18n.t('menu.tools', '&Tools'),
       submenu: [
@@ -644,62 +530,7 @@ exports.get = function (props = {}) {
           checked: !!showSiblings,
           click: () => toggleSetting('view.show_siblings'),
         },
-        {
-          label: i18n.t('menu.view', 'Show &Heatmap'),
-          submenu: [
-            {
-              label: i18n.t('menu.view', '&Don’t Show'),
-              type: 'checkbox',
-              checked: !showAnalysis,
-              accelerator: 'CmdOrCtrl+H',
-              click: () => toggleSetting('board.show_analysis'),
-            },
-            {type: 'separator'},
-            {
-              label: i18n.t('menu.view', 'Show &Win Rate'),
-              type: 'checkbox',
-              checked: !!showAnalysis && analysisType === 'winrate',
-              accelerator: 'CmdOrCtrl+Shift+H',
-              click: () => {
-                setting.set('board.show_analysis', true)
-                setting.set(
-                  'board.analysis_type',
-                  setting.get('board.analysis_type') === 'winrate'
-                    ? 'scoreLead'
-                    : 'winrate',
-                )
-              },
-            },
-            {
-              label: i18n.t('menu.view', 'Show &Score Lead'),
-              type: 'checkbox',
-              checked: !!showAnalysis && analysisType === 'scoreLead',
-              accelerator: 'CmdOrCtrl+Shift+H',
-              click: () => {
-                setting.set('board.show_analysis', true)
-                setting.set(
-                  'board.analysis_type',
-                  setting.get('board.analysis_type') === 'scoreLead'
-                    ? 'winrate'
-                    : 'scoreLead',
-                )
-              },
-            },
-          ],
-        },
         {type: 'separator'},
-        {
-          label: i18n.t('menu.view', 'Show &Winrate Graph'),
-          type: 'checkbox',
-          checked: !!showWinrateGraph,
-          enabled: !!showGameGraph || !!showCommentBox,
-          click: () => {
-            toggleSetting('view.show_winrategraph')
-            sabaki.setState(({showWinrateGraph}) => ({
-              showWinrateGraph: !showWinrateGraph,
-            }))
-          },
-        },
         {
           label: i18n.t('menu.view', 'Show Game &Tree'),
           type: 'checkbox',

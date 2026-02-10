@@ -5,7 +5,6 @@ import {parseDates, stringifyDates} from '@sabaki/sgf'
 
 import sabaki from '../../modules/sabaki.js'
 import {
-  popupMenu,
   shallowEquals,
   lexicalCompare,
   noop,
@@ -40,14 +39,11 @@ export default class InfoDrawer extends Component {
       blackRank: null,
       whiteName: null,
       whiteRank: null,
-      syncerEngines: [null, null],
       gameName: null,
       eventName: null,
       gameComment: null,
       date: null,
       result: null,
-      komi: null,
-      handicap: 0,
       size: [null, null],
     }
 
@@ -65,7 +61,6 @@ export default class InfoDrawer extends Component {
         'gameComment',
         'date',
         'result',
-        'komi',
       ]
 
       let data = keys.reduce((acc, key) => {
@@ -78,31 +73,11 @@ export default class InfoDrawer extends Component {
       }, {})
 
       if (emptyTree) {
-        data.handicap = this.state.handicap
         data.size = this.state.size
       }
 
       sabaki.setGameInfo(data)
       sabaki.closeDrawer()
-
-      this.state.syncerEngines.forEach((syncerEngine, i) => {
-        let playerSyncerId = null
-
-        if (syncerEngine != null) {
-          let {syncer, engine} = syncerEngine
-
-          if (syncer == null) {
-            syncer = sabaki.attachEngines([engine])[0]
-          }
-
-          playerSyncerId = syncer.id
-        }
-
-        sabaki.setState({
-          [i === 0 ? 'blackEngineSyncerId' : 'whiteEngineSyncerId']:
-            playerSyncerId,
-        })
-      })
     }
 
     this.handleCancelButtonClick = (evt) => {
@@ -172,9 +147,7 @@ export default class InfoDrawer extends Component {
       'gameName',
       'eventName',
       'gameComment',
-      'komi',
       'result',
-      'handicap',
     ].reduce((acc, key) => {
       acc[key] = ({currentTarget}) => {
         this.setState({
@@ -184,94 +157,12 @@ export default class InfoDrawer extends Component {
 
       return acc
     }, {})
-
-    this.handleEngineMenuClick = [0, 1].map((index) => (evt) => {
-      let engines = setting.get('engines.list')
-      let {attachedEngineSyncers} = this.props
-      let nameKey = ['blackName', 'whiteName'][index]
-      let autoName =
-        this.state.syncerEngines[index] == null
-          ? this.state[nameKey] == null
-          : this.state[nameKey] === this.state.syncerEngines[index].engine.name
-
-      let template = [
-        {
-          label: t('Manual'),
-          type: 'checkbox',
-          checked: this.state.syncerEngines[index] == null,
-          click: () => {
-            this.setState((state) => ({
-              syncerEngines: Object.assign(state.syncerEngines, {
-                [index]: null,
-              }),
-              [nameKey]: autoName ? null : state[nameKey],
-            }))
-          },
-        },
-        {type: 'separator'},
-        ...attachedEngineSyncers.map((syncer) => ({
-          label: syncer.engine.name || t('(Unnamed Engine)'),
-          type: 'checkbox',
-          checked:
-            this.state.syncerEngines[index] != null &&
-            this.state.syncerEngines[index].syncer === syncer,
-          click: () => {
-            this.setState((state) => ({
-              syncerEngines: Object.assign(state.syncerEngines, {
-                [index]: {syncer, engine: syncer.engine},
-              }),
-              [nameKey]: autoName ? syncer.engine.name : state[nameKey],
-            }))
-          },
-        })),
-        attachedEngineSyncers.length > 0 && {type: 'separator'},
-        {
-          label: t('Attach Engine'),
-          submenu: engines.map((engine) => ({
-            label: engine.name || t('(Unnamed Engine)'),
-            type: 'checkbox',
-            checked:
-              this.state.syncerEngines[index] != null &&
-              this.state.syncerEngines[index].syncer == null &&
-              this.state.syncerEngines[index].engine === engine,
-            click: () => {
-              this.setState((state) => ({
-                syncerEngines: Object.assign(state.syncerEngines, {
-                  [index]: {engine},
-                }),
-                [nameKey]: autoName ? engine.name : state[nameKey],
-              }))
-            },
-          })),
-        },
-        {
-          label: t('Manage Engines…'),
-          click: () => {
-            sabaki.setState({preferencesTab: 'engines'})
-            sabaki.openDrawer('preferences')
-          },
-        },
-      ].filter((x) => !!x)
-
-      let {left, bottom} = evt.currentTarget.getBoundingClientRect()
-      popupMenu(template, left, bottom)
-    })
   }
 
-  componentWillReceiveProps({
-    gameInfo,
-    show,
-    attachedEngineSyncers,
-    blackEngineSyncerId,
-    whiteEngineSyncerId,
-  }) {
+  componentWillReceiveProps({gameInfo, show}) {
     if (!this.props.show && show) {
       this.setState({
         ...gameInfo,
-        syncerEngines: [blackEngineSyncerId, whiteEngineSyncerId].map((id) => {
-          let syncer = attachedEngineSyncers.find((syncer) => syncer.id === id)
-          return syncer == null ? null : {syncer, engine: syncer.engine}
-        }),
         showResult:
           !gameInfo.result ||
           gameInfo.result.trim() === '' ||
@@ -415,14 +306,11 @@ export default class InfoDrawer extends Component {
       blackRank,
       whiteName,
       whiteRank,
-      syncerEngines,
       gameName,
       eventName,
       gameComment,
       date,
       result,
-      komi,
-      handicap,
       size,
     },
   ) {
@@ -444,16 +332,6 @@ export default class InfoDrawer extends Component {
           h(
             'span',
             {},
-
-            h('img', {
-              tabIndex: 0,
-              src: './node_modules/@primer/octicons/build/svg/chevron-down.svg',
-              width: 16,
-              height: 16,
-              class: classNames({menu: true, active: syncerEngines[0] != null}),
-              onClick: this.handleEngineMenuClick[0],
-            }),
-            ' ',
 
             h('input', {
               type: 'text',
@@ -500,16 +378,6 @@ export default class InfoDrawer extends Component {
               onInput: this.handleInputChange.whiteRank,
             }),
           ),
-          ' ',
-
-          h('img', {
-            tabIndex: 0,
-            src: './node_modules/@primer/octicons/build/svg/chevron-down.svg',
-            width: 16,
-            height: 16,
-            class: classNames({menu: true, active: syncerEngines[1] != null}),
-            onClick: this.handleEngineMenuClick[1],
-          }),
         ),
 
         h(
@@ -580,48 +448,13 @@ export default class InfoDrawer extends Component {
           ),
           h(
             InfoDrawerItem,
-            {title: t('Komi')},
-            h('input', {
-              type: 'number',
-              name: 'komi',
-              step: 0.5,
-              placeholder: 0,
-              value: komi == null ? '' : komi,
-              onInput: this.handleInputChange.komi,
-            }),
-          ),
-          h(
-            InfoDrawerItem,
-            {title: t('Handicap')},
-            h(
-              'select',
-              {
-                selectedIndex: Math.max(0, handicap - 1),
-                disabled: !emptyTree,
-                onChange: this.handleInputChange.handicap,
-              },
-
-              h('option', {value: 0}, t('No stones')),
-              [...Array(8)].map((_, i) =>
-                h(
-                  'option',
-                  {value: i + 2},
-                  t((p) => `${p.stones} stones`, {
-                    stones: i + 2,
-                  }),
-                ),
-              ),
-            ),
-          ),
-          h(
-            InfoDrawerItem,
             {title: t('Board Size')},
             h('input', {
               type: 'number',
               name: 'size-width',
-              placeholder: 19,
+              placeholder: 15,
               max: 25,
-              min: 2,
+              min: 5,
               value: size[0],
               disabled: !emptyTree,
               onFocus: this.handleBoardWidthFocus,
@@ -643,9 +476,9 @@ export default class InfoDrawer extends Component {
             h('input', {
               type: 'number',
               name: 'size-height',
-              placeholder: 19,
+              placeholder: 15,
               max: 25,
-              min: 3,
+              min: 5,
               value: size[1],
               disabled: !emptyTree,
               onInput: this.handleBoardHeightChange,

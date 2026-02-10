@@ -1,4 +1,4 @@
-import {fromDimensions} from '@sabaki/go-board'
+import {fromDimensions} from './gomoku-board.js'
 import GameTree from '@sabaki/immutable-gametree'
 import {
   stringifyVertex,
@@ -38,21 +38,13 @@ export function getRootProperty(tree, property, fallback = null) {
 }
 
 export function getGameInfo(tree) {
-  let komi = getRootProperty(tree, 'KM')
-  if (komi != null && !isNaN(komi)) komi = +komi
-  else komi = null
-
   let size = getRootProperty(tree, 'SZ')
   if (size == null) {
-    size = [19, 19]
+    size = [15, 15]
   } else {
     let s = size.toString().split(':')
     size = [+s[0], +s[s.length - 1]]
   }
-
-  let handicap = getRootProperty(tree, 'HA', 0)
-  handicap = Math.max(1, Math.min(9, Math.round(handicap)))
-  if (handicap === 1) handicap = 0
 
   let playerNames = ['B', 'W'].map(
     (x) => getRootProperty(tree, `P${x}`) || getRootProperty(tree, `${x}T`),
@@ -72,8 +64,6 @@ export function getGameInfo(tree) {
     gameComment: getRootProperty(tree, 'GC'),
     date: getRootProperty(tree, 'DT'),
     result: getRootProperty(tree, 'RE'),
-    komi,
-    handicap,
     size,
   }
 }
@@ -86,7 +76,7 @@ export function setGameInfo(tree, data) {
       if (data.size) {
         let value = data.size
         value = value.map((x) =>
-          isNaN(x) || !x ? 19 : Math.min(25, Math.max(2, x)),
+          isNaN(x) || !x ? 15 : Math.min(25, Math.max(2, x)),
         )
 
         if (value[0] === value[1]) value = value[0].toString()
@@ -110,8 +100,6 @@ export function setGameInfo(tree, data) {
       gameComment: 'GC',
       date: 'DT',
       result: 'RE',
-      komi: 'KM',
-      handicap: 'HA',
     }
 
     for (let key in props) {
@@ -119,22 +107,6 @@ export function setGameInfo(tree, data) {
       let value = data[key]
 
       if (value && value.toString() !== '') {
-        if (key === 'komi') {
-          if (isNaN(value)) value = 0
-        } else if (key === 'handicap') {
-          let board = getBoard(newTree, newTree.root.id)
-          let stones = board.getHandicapPlacement(+value)
-
-          value = stones.length
-          if (value <= 1) {
-            draft.removeProperty(draft.root.id, props[key])
-            draft.removeProperty(draft.root.id, 'AB')
-            continue
-          }
-
-          draft.updateProperty(draft.root.id, 'AB', stones.map(stringifyVertex))
-        }
-
         draft.updateProperty(draft.root.id, props[key], [value.toString()])
       } else {
         draft.removeProperty(draft.root.id, props[key])
@@ -214,7 +186,7 @@ export function getBoard(tree, id) {
   }
 
   if (!board) {
-    let size = [19, 19]
+    let size = [15, 15]
 
     if (tree.root.data.SZ != null) {
       let value = tree.root.data.SZ[0]
@@ -222,7 +194,7 @@ export function getBoard(tree, id) {
       if (value.includes(':')) size = value.split(':')
       else size = [value, value]
 
-      size = size.map((x) => (isNaN(x) ? 19 : +x))
+      size = size.map((x) => (isNaN(x) ? 15 : +x))
     }
 
     board = fromDimensions(...size)

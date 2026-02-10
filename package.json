@@ -1,18 +1,18 @@
 {
-  "name": "sabaki",
-  "productName": "Sabaki",
+  "name": "renju",
+  "productName": "Renju",
   "version": "0.60.0",
-  "description": "An elegant Go/Baduk/Weiqi board and SGF editor for a more civilized age.",
+  "description": "An elegant Gomoku/五子棋 board and SGF editor for a more civilized age.",
   "author": "Yichuan Shen <shen.yichuan@gmail.com>",
   "homepage": "http://sabaki.yichuanshen.de",
   "license": "MIT",
   "main": "./src/main.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SabakiHQ/Sabaki"
+    "url": "https://github.com/FZRKexEr/renju"
   },
   "bugs": {
-    "url": "https://github.com/SabakiHQ/Sabaki/issues"
+    "url": "https://github.com/FZRKexEr/renju/issues"
   },
   "build": {
     "appId": "de.yichuanshen.sabaki",
@@ -88,12 +88,8 @@
     "@mariotacke/color-thief": "^3.0.1",
     "@primer/octicons": "^9.6.0",
     "@sabaki/boardmatcher": "^1.2.0",
-    "@sabaki/deadstones": "^2.1.2",
-    "@sabaki/go-board": "^1.4.1",
-    "@sabaki/gtp": "^3.0.0",
     "@sabaki/i18n": "0.51.1-1",
     "@sabaki/immutable-gametree": "^1.9.4",
-    "@sabaki/influence": "^1.2.2",
     "@sabaki/sgf": "^3.4.7",
     "@sabaki/shudan": "^1.7.1",
     "argv-split": "^2.0.1",
@@ -112,14 +108,15 @@
     "winston": "^3.2.1"
   },
   "devDependencies": {
+    "ansi-colors": "^4.1.3",
     "concurrently": "^7.3.0",
     "electron": "^37.10.3",
     "electron-builder": "^26.4.0",
     "mocha": "^10.0.0",
-    "tsx": "^4.0.0",
     "onchange": "^7.1.0",
     "prettier": "3.8.1",
     "tmp": "^0.2.5",
+    "tsx": "^4.0.0",
     "webpack": "^5.104.1",
     "webpack-cli": "^6.0.1"
   },

@@ -3,9 +3,8 @@ import {shell} from 'electron'
 import {h, Component} from 'preact'
 import classNames from 'classnames'
 import {join} from 'path'
-import rimraf from 'rimraf'
+import {rimraf} from 'rimraf'
 import {v4 as uuid} from 'uuid'
-import natsort from 'natsort'
 
 import i18n from '../../i18n.js'
 import sabaki from '../../modules/sabaki.js'
@@ -15,7 +14,6 @@ import {
   noop,
   isWritableDirectory,
 } from '../../modules/helper.js'
-import * as gtplogger from '../../modules/gtplogger.js'
 import Drawer from './Drawer.js'
 
 const setting = {
@@ -294,14 +292,6 @@ class GeneralTab extends Component {
           text: t('Show automatic move titles'),
         }),
         h(PreferencesItem, {
-          id: 'game.show_ko_warning',
-          text: t('Show ko warning'),
-        }),
-        h(PreferencesItem, {
-          id: 'game.show_suicide_warning',
-          text: t('Show suicide warning'),
-        }),
-        h(PreferencesItem, {
           id: 'edit.show_removenode_warning',
           text: t('Show remove node warning'),
         }),
@@ -316,10 +306,6 @@ class GeneralTab extends Component {
         h(PreferencesItem, {
           id: 'edit.click_currentvertex_to_remove',
           text: t('Click last played stone to remove'),
-        }),
-        h(PreferencesItem, {
-          id: 'view.winrategraph_invert',
-          text: t('Invert winrate graph'),
         }),
       ),
     )
@@ -447,12 +433,13 @@ class ThemesTab extends Component {
 
       let {path} = setting.getThemes()[this.state.currentTheme]
 
-      rimraf(path, async (err) => {
-        if (err) return showMessageBox(t('Uninstallation failed.'), 'error')
-
+      try {
+        await rimraf(path)
         await setting.loadThemes()
         setting.set('theme.current', null)
-      })
+      } catch (err) {
+        showMessageBox(t('Uninstallation failed.'), 'error')
+      }
     }
 
     this.handleInstallButton = async (evt) => {
@@ -566,7 +553,7 @@ class ThemesTab extends Component {
           h(
             'a',
             {
-              href: `https://github.com/SabakiHQ/Sabaki/blob/v${sabaki.version}/docs/guides/theme-directory.md`,
+              href: `https://github.com/FZRKexEr/renju/blob/v${sabaki.version}/docs/guides/theme-directory.md`,
               onClick: this.handleLinkClick,
             },
             t('Get more themes…'),
@@ -610,193 +597,6 @@ class ThemesTab extends Component {
   }
 }
 
-class EngineItem extends Component {
-  constructor() {
-    super()
-
-    this.handleChange = (evt) => {
-      let {id, name, path, args, commands, onChange = noop} = this.props
-      let element = evt.currentTarget
-
-      onChange({id, name, path, args, commands, [element.name]: element.value})
-    }
-
-    this.handleBrowseButtonClick = async () => {
-      let result = await showOpenDialog({
-        properties: ['openFile'],
-        filters: [{name: t('All Files'), extensions: ['*']}],
-      })
-      if (!result || result.length === 0) return
-
-      let {id, name, args, commands, onChange = noop} = this.props
-      onChange({id, name, args, commands, path: result[0]})
-    }
-
-    this.handleRemoveButtonClick = () => {
-      let {onRemove = noop} = this.props
-      onRemove(this.props)
-    }
-  }
-
-  render({name, path, args, commands}) {
-    return h(
-      'li',
-      {},
-      h(
-        'h3',
-        {},
-        h(
-          'a',
-          {
-            class: 'remove',
-            title: t('Remove'),
-            onClick: this.handleRemoveButtonClick,
-          },
-
-          h('img', {src: './node_modules/@primer/octicons/build/svg/x.svg'}),
-        ),
-        h('input', {
-          type: 'text',
-          placeholder: t('(Unnamed Engine)'),
-          value: name,
-          name: 'name',
-          onChange: this.handleChange,
-        }),
-      ),
-      h(
-        'p',
-        {},
-        h(
-          'a',
-          {
-            class: 'browse',
-            title: t('Browse…'),
-            onClick: this.handleBrowseButtonClick,
-          },
-
-          h('img', {
-            src: './node_modules/@primer/octicons/build/svg/file-directory.svg',
-          }),
-        ),
-        h('input', {
-          type: 'text',
-          placeholder: t('Path'),
-          value: path || '',
-          name: 'path',
-          onChange: this.handleChange,
-        }),
-      ),
-      h(
-        'p',
-        {},
-        h('input', {
-          type: 'text',
-          placeholder: t('No arguments'),
-          value: args || '',
-          name: 'args',
-          onChange: this.handleChange,
-        }),
-      ),
-      h(
-        'p',
-        {},
-        h('input', {
-          type: 'text',
-          placeholder: t('Initial commands (;-separated)'),
-          value: commands || '',
-          name: 'commands',
-          onChange: this.handleChange,
-        }),
-      ),
-    )
-  }
-}
-
-class EnginesTab extends Component {
-  constructor() {
-    super()
-
-    this.handleItemChange = ({id, name, path, args, commands}) => {
-      let engines = this.props.engines.slice()
-
-      engines[id] = {name, path, args, commands}
-      setting.set('engines.list', engines)
-    }
-
-    this.handleItemRemove = ({id}) => {
-      let engines = this.props.engines.slice()
-
-      engines.splice(id, 1)
-      setting.set('engines.list', engines)
-    }
-
-    this.handleAddButtonClick = (evt) => {
-      evt.preventDefault()
-
-      let engines = [{name: '', path: '', args: ''}, ...this.props.engines]
-      setting.set('engines.list', engines)
-
-      setImmediate(() => {
-        this.element.querySelector('.engines-list li:first-child input').focus()
-      })
-    }
-  }
-
-  render({engines}) {
-    return h(
-      'div',
-      {ref: (el) => (this.element = el), class: 'engines'},
-      h(
-        'div',
-        {class: 'gtpconsolelog'},
-        h(
-          'ul',
-          {},
-          h(PreferencesItem, {
-            id: 'gtp.console_log_enabled',
-            text: t('Enable GTP logging to directory:'),
-          }),
-
-          h(PathInputItem, {
-            id: 'gtp.console_log_path',
-            chooseDirectory: true,
-          }),
-        ),
-      ),
-      h(
-        'div',
-        {class: 'engines-list'},
-        h(
-          'ul',
-          {},
-          engines.map(({name, path, args, commands}, id) =>
-            h(EngineItem, {
-              id,
-              name,
-              path,
-              args,
-              commands,
-
-              onChange: this.handleItemChange,
-              onRemove: this.handleItemRemove,
-            }),
-          ),
-        ),
-      ),
-
-      h(
-        'p',
-        {},
-        h(
-          'button',
-          {type: 'button', onClick: this.handleAddButtonClick},
-          t('Add'),
-        ),
-      ),
-    )
-  }
-}
-
 export default class PreferencesDrawer extends Component {
   constructor() {
     super()
@@ -807,7 +607,7 @@ export default class PreferencesDrawer extends Component {
     }
 
     this.handleTabClick = (evt) => {
-      let tabs = ['general', 'themes', 'engines']
+      let tabs = ['general', 'themes']
       let tab = tabs.find((x) => evt.currentTarget.classList.contains(x))
 
       sabaki.setState({preferencesTab: tab})
@@ -819,38 +619,12 @@ export default class PreferencesDrawer extends Component {
   }
 
   componentDidUpdate(prevProps) {
-    // On closing
-
     if (prevProps.show && !this.props.show) {
-      // Sort engines
-
-      let cmp = natsort({insensitive: true})
-      let engines = [...this.props.engines].sort((x, y) => cmp(x.name, y.name))
-
-      setting.set('engines.list', engines)
-
-      // Validate GTP logging path
-
-      if (sabaki.state.attachedEngineSyncers.length > 0) {
-        if (!gtplogger.updatePath()) {
-          // Force the user to fix the issue
-
-          setTimeout(() => {
-            sabaki.setState({preferencesTab: 'engines'})
-            sabaki.openDrawer('preferences')
-          }, 500)
-
-          return
-        }
-      }
-
-      // Reset tab selection
-
       sabaki.setState({preferencesTab: 'general'})
     }
   }
 
-  render({show, tab, engines, graphGridSize}) {
+  render({show, tab, graphGridSize}) {
     return h(
       Drawer,
       {
@@ -879,15 +653,6 @@ export default class PreferencesDrawer extends Component {
 
           h('a', {href: '#'}, t('Themes')),
         ),
-        h(
-          'li',
-          {
-            class: classNames({engines: true, current: tab === 'engines'}),
-            onClick: this.handleTabClick,
-          },
-
-          h('a', {href: '#'}, t('Engines')),
-        ),
       ),
 
       h(
@@ -895,7 +660,6 @@ export default class PreferencesDrawer extends Component {
         {class: classNames(tab, 'tab-content')},
         h(GeneralTab, {graphGridSize}),
         h(ThemesTab),
-        h(EnginesTab, {engines}),
 
         h(
           'p',
