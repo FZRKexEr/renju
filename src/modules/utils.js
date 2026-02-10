@@ -87,4 +87,3 @@ export function normalizeEndings(input) {
 export function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
-

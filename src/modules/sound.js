@@ -27,5 +27,4 @@ export const playPachi = prepareFunction(
   [...Array(5)].map((_, i) => new Audio(`./data/${i}.mp3`)),
 )
 
-
 export const playNewGame = prepareFunction([new Audio('./data/newgame.mp3')])

@@ -42,17 +42,15 @@ export default class PlayBar extends Component {
     return nextProps.mode !== this.props.mode || nextProps.mode === 'play'
   }
 
-  render(
-    {
-      mode,
-      playerNames,
-      playerRanks,
-      currentPlayer,
-      showHotspot,
+  render({
+    mode,
+    playerNames,
+    playerRanks,
+    currentPlayer,
+    showHotspot,
 
-      onCurrentPlayerClick = helper.noop,
-    },
-  ) {
+    onCurrentPlayerClick = helper.noop,
+  }) {
     return h(
       'header',
       {
@@ -68,15 +66,10 @@ export default class PlayBar extends Component {
         'span',
         {class: 'playercontent player_1'},
 
-        playerRanks[0] &&
-          h('span', {class: 'rank'}, playerRanks[0]),
+        playerRanks[0] && h('span', {class: 'rank'}, playerRanks[0]),
         ' ',
 
-        h(
-          'span',
-          {class: 'name'},
-          playerNames[0] || t('Black'),
-        ),
+        h('span', {class: 'name'}, playerNames[0] || t('Black')),
       ),
 
       h(
@@ -96,15 +89,10 @@ export default class PlayBar extends Component {
       h(
         'span',
         {class: 'playercontent player_-1'},
-        h(
-          'span',
-          {class: 'name'},
-          playerNames[1] || t('White'),
-        ),
+        h('span', {class: 'name'}, playerNames[1] || t('White')),
         ' ',
 
-        playerRanks[1] &&
-          h('span', {class: 'rank'}, playerRanks[1]),
+        playerRanks[1] && h('span', {class: 'rank'}, playerRanks[1]),
       ),
 
       h(

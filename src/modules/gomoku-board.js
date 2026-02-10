@@ -7,9 +7,7 @@ class GomokuBoard {
   constructor(width = 15, height = 15, signMap = null) {
     this.width = width
     this.height = height
-    this.signMap =
-      signMap ||
-      [...Array(height)].map(() => Array(width).fill(0))
+    this.signMap = signMap || [...Array(height)].map(() => Array(width).fill(0))
 
     this.markers = null
     this.lines = null
@@ -34,10 +32,7 @@ class GomokuBoard {
 
   has(vertex) {
     let [x, y] = vertex
-    return (
-      x >= 0 && x < this.width &&
-      y >= 0 && y < this.height
-    )
+    return x >= 0 && x < this.width && y >= 0 && y < this.height
   }
 
   clone() {
@@ -103,22 +98,29 @@ class GomokuBoard {
     let middleY = (this.height - 1) / 2
 
     if (
-      nearX < 0 || nearY < 0 ||
-      farX >= this.width || farY >= this.height ||
-      nearX > farX || nearY > farY
+      nearX < 0 ||
+      nearY < 0 ||
+      farX >= this.width ||
+      farY >= this.height ||
+      nearX > farX ||
+      nearY > farY
     ) {
       return []
     }
 
     let points = [
-      [nearX, nearY], [farX, nearY],
-      [nearX, farY], [farX, farY],
+      [nearX, nearY],
+      [farX, nearY],
+      [nearX, farY],
+      [farX, farY],
     ]
 
     if (this.width % 2 !== 0 && this.height % 2 !== 0) {
       points.push(
-        [middleX, nearY], [nearX, middleY],
-        [farX, middleY], [middleX, farY],
+        [middleX, nearY],
+        [nearX, middleY],
+        [farX, middleY],
+        [middleX, farY],
         [middleX, middleY],
       )
     }
@@ -149,8 +151,13 @@ class GomokuBoard {
       chain.push(v)
 
       let [x, y] = v
-      for (let [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
-        if (this.has([nx, ny]) && !visited[[nx,ny].join(',')]) {
+      for (let [nx, ny] of [
+        [x - 1, y],
+        [x + 1, y],
+        [x, y - 1],
+        [x, y + 1],
+      ]) {
+        if (this.has([nx, ny]) && !visited[[nx, ny].join(',')]) {
           queue.push([nx, ny])
         }
       }
@@ -187,9 +194,9 @@ class GomokuBoard {
 
     // Check 4 directions: horizontal, vertical, diagonal-down, diagonal-up
     let directions = [
-      [1, 0],  // horizontal
-      [0, 1],  // vertical
-      [1, 1],  // diagonal down-right
+      [1, 0], // horizontal
+      [0, 1], // vertical
+      [1, 1], // diagonal down-right
       [1, -1], // diagonal up-right
     ]
 

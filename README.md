@@ -1,12 +1,15 @@
 # Renju
 
-A beautiful Gomoku (Five in a Row / 五子棋) board and SGF editor, built with Electron and Preact.
+A beautiful Gomoku (Five in a Row / 五子棋) board and SGF editor, built with
+Electron and Preact.
 
-Based on [Sabaki](https://github.com/SabakiHQ/Sabaki), an elegant Go board editor.
+Based on [Sabaki](https://github.com/SabakiHQ/Sabaki), an elegant Go board
+editor.
 
 ## Download
 
-Pre-built binaries for macOS, Linux, and Windows are available on the [Releases](https://github.com/FZRKexEr/renju/releases) page.
+Pre-built binaries for macOS, Linux, and Windows are available on the
+[Releases](https://github.com/FZRKexEr/renju/releases) page.
 
 ## Features
 
@@ -47,7 +50,8 @@ npm run dist:win64   # Windows 64-bit installer
 
 ## Release
 
-Pushing a version tag triggers GitHub Actions to build all platforms and publish to Releases automatically:
+Pushing a version tag triggers GitHub Actions to build all platforms and publish
+to Releases automatically:
 
 ```bash
 git tag v0.60.0

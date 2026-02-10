@@ -218,8 +218,7 @@ class App extends Component {
     if (prevShowSidebar !== sabaki.inferredState.showSidebar) {
       let [width, height] = sabaki.window.getContentSize()
       let widthDiff =
-        sabaki.state.sidebarWidth *
-        (sabaki.inferredState.showSidebar ? 1 : -1)
+        sabaki.state.sidebarWidth * (sabaki.inferredState.showSidebar ? 1 : -1)
 
       if (
         !sabaki.window.isMaximized() &&

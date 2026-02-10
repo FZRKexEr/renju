@@ -4,11 +4,7 @@ import Pikaday from 'pikaday'
 import {parseDates, stringifyDates} from '@sabaki/sgf'
 
 import sabaki from '../../modules/sabaki.js'
-import {
-  shallowEquals,
-  lexicalCompare,
-  noop,
-} from '../../modules/helper.js'
+import {shallowEquals, lexicalCompare, noop} from '../../modules/helper.js'
 import i18n from '../../i18n.js'
 
 import Drawer from './Drawer.js'

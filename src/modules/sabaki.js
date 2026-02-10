@@ -344,7 +344,6 @@ class Sabaki extends EventEmitter {
     this.hideInfoOverlayId = setTimeout(() => this.hideInfoOverlay(), duration)
   }
 
-
   // History Management
 
   recordHistory({prevGameIndex, prevTreePosition} = {}) {
@@ -1512,7 +1511,6 @@ class Sabaki extends EventEmitter {
     this.autoscrollId = null
   }
 
-
   // Find Methods
 
   async findPosition(step, condition) {
@@ -1615,10 +1613,7 @@ class Sabaki extends EventEmitter {
   setPlayer(treePosition, sign) {
     let newTree = this.inferredState.gameTree.mutate((draft) => {
       let node = draft.get(treePosition)
-      let intendedSign =
-        node.data.B != null
-          ? -1
-          : +(node.data.W != null)
+      let intendedSign = node.data.B != null ? -1 : +(node.data.W != null)
 
       if (intendedSign === sign || sign === 0) {
         draft.removeProperty(treePosition, 'PL')
