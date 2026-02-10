@@ -15,23 +15,24 @@
     "url": "https://github.com/FZRKexEr/renju/issues"
   },
   "build": {
-    "appId": "de.yichuanshen.sabaki",
-    "copyright": "Copyright © 2015-2022 Yichuan Shen",
+    "appId": "com.fzrkexer.renju",
+    "copyright": "Copyright © 2025 FZRKexEr",
     "compression": "normal",
     "linux": {
       "target": "AppImage",
       "category": "Game",
-      "artifactName": "sabaki-v${version}-linux-${arch}.${ext}"
+      "artifactName": "renju-v${version}-linux-${arch}.${ext}"
     },
     "mac": {
       "target": [
         "7z"
       ],
+      "identity": null,
       "category": "public.app-category.board-games",
-      "artifactName": "sabaki-v${version}-mac-${arch}.${ext}"
+      "artifactName": "renju-v${version}-mac-${arch}.${ext}"
     },
     "win": {
-      "artifactName": "sabaki-v${version}-win.exe"
+      "artifactName": "renju-v${version}-win.exe"
     },
     "nsis": {
       "oneClick": false,
@@ -68,7 +69,6 @@
       "!engines",
       "!node_modules",
       "node_modules/@primer/octicons/build/svg/*",
-      "node_modules/@sabaki/deadstones/wasm/*",
       "node_modules/@sabaki/shudan/css/*",
       "node_modules/@sabaki/i18n/**/*",
       "node_modules/dolm/**/*",
@@ -112,6 +112,7 @@
     "concurrently": "^7.3.0",
     "electron": "^37.10.3",
     "electron-builder": "^26.4.0",
+    "minizlib": "^3.1.0",
     "mocha": "^10.0.0",
     "onchange": "^7.1.0",
     "prettier": "3.8.1",
@@ -119,6 +120,9 @@
     "tsx": "^4.0.0",
     "webpack": "^5.104.1",
     "webpack-cli": "^6.0.1"
+  },
+  "overrides": {
+    "minizlib": "^3.1.0"
   },
   "scripts": {
     "test": "mocha --require tsx",
@@ -131,12 +135,12 @@
     "watch-format": "onchange \"**/*.{js,html,md}\" \"!{{dist,i18n}/**,bundle.js*}\" -- prettier --write {{changed}}",
     "watch": "concurrently \"webpack --mode development --watch\" \"npm run watch-format\"",
     "dist:macos": "npm run bundle && electron-builder -m --x64 --arm64",
-    "dist:linux": "npm run bundle && electron-builder -l --ia32 --x64 && node ./ci/mv.js ./dist/sabaki-vx.x.x-linux-i386.AppImage ./dist/sabaki-vx.x.x-linux-ia32.AppImage && node ./ci/mv.js ./dist/sabaki-vx.x.x-linux-x86_64.AppImage ./dist/sabaki-vx.x.x-linux-x64.AppImage",
+    "dist:linux": "npm run bundle && electron-builder -l --ia32 --x64 && node ./ci/mv.js ./dist/renju-vx.x.x-linux-i386.AppImage ./dist/renju-vx.x.x-linux-ia32.AppImage && node ./ci/mv.js ./dist/renju-vx.x.x-linux-x86_64.AppImage ./dist/renju-vx.x.x-linux-x64.AppImage",
     "dist:arm64": "npm run bundle && electron-builder -l --arm64",
-    "dist:win32": "npm run bundle && electron-builder -w --ia32 && node ./ci/mv.js ./dist/sabaki-vx.x.x-win.exe ./dist/sabaki-vx.x.x-win-ia32-setup.exe",
-    "dist:win64": "npm run bundle && electron-builder -w --x64 && node ./ci/mv.js ./dist/sabaki-vx.x.x-win.exe ./dist/sabaki-vx.x.x-win-x64-setup.exe",
-    "dist:win32-portable": "npm run bundle && electron-builder -w portable --ia32 && node ./ci/mv.js ./dist/sabaki-vx.x.x-win.exe ./dist/sabaki-vx.x.x-win-ia32-portable.exe",
-    "dist:win64-portable": "npm run bundle && electron-builder -w portable --x64 && node ./ci/mv.js ./dist/sabaki-vx.x.x-win.exe ./dist/sabaki-vx.x.x-win-x64-portable.exe",
+    "dist:win32": "npm run bundle && electron-builder -w --ia32 && node ./ci/mv.js ./dist/renju-vx.x.x-win.exe ./dist/renju-vx.x.x-win-ia32-setup.exe",
+    "dist:win64": "npm run bundle && electron-builder -w --x64 && node ./ci/mv.js ./dist/renju-vx.x.x-win.exe ./dist/renju-vx.x.x-win-x64-setup.exe",
+    "dist:win32-portable": "npm run bundle && electron-builder -w portable --ia32 && node ./ci/mv.js ./dist/renju-vx.x.x-win.exe ./dist/renju-vx.x.x-win-ia32-portable.exe",
+    "dist:win64-portable": "npm run bundle && electron-builder -w portable --x64 && node ./ci/mv.js ./dist/renju-vx.x.x-win.exe ./dist/renju-vx.x.x-win-x64-portable.exe",
     "dist:win": "npm run dist:win32 && npm run dist:win64 && npm run dist:win32-portable && npm run dist:win64-portable",
     "i18n": "node ./ci/createI18n.js"
   }

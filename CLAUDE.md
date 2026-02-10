@@ -140,3 +140,32 @@ Main process and renderer process communicate via Electron's IPC:
 - `build/`: Build configuration for electron-builder
 - `data/themes/`: Built-in board/stone themes
 - `data/i18n/`: Translation files
+
+## Fork Notes (from Sabaki)
+
+### What Was Removed
+- Go-specific packages: `@sabaki/go-board`, `@sabaki/deadstones`, `@sabaki/influence`, `@sabaki/gtp`
+- Components: ScoringBar, ScoreDrawer, LeftSidebar, WinrateGraph, GtpConsole, PeerList
+- Modules: `enginesyncer.js`, `gtplogger.js`
+- Features: GTP engine support, scoring/estimation, pass/resign, ko/suicide detection, komi/handicap in game UI
+
+### What Was Kept
+- File format parsers (SGF, NGF, GIB, UGF) faithfully parse original Go data including handicap/komi
+- `@sabaki/shudan` (board rendering), `@sabaki/sgf` (SGF parsing), `@sabaki/i18n`, `immutable-gametree`
+- Theme system, i18n, undo/redo, game tree navigation
+
+### Key Implementation Details
+
+- **gomoku-board.js**: `makeMove()` only places stones (no capture logic); `checkWin(vertex)` scans 4 directions for exactly 5 in a row
+- **File format parsers**: GIB/NGF parsers use inline Tygem handicap placement arrays since `@sabaki/go-board` was removed. The placement order for 19x19 is: `[near,far], [far,near], [near,near], [far,far], [near,mid], [far,mid], [mid,near], [mid,far], [mid,mid]` where near=3, far=15, mid=9
+- **Brand rename checklist**: When renaming the app, update all of: `package.json` (name, productName, repository, bugs, build.appId, artifactNames), `index.html` (title), `sabaki.js` (appName), `menu.js` (app.name), `setting.js` (userData dir)
+
+### Build Gotchas
+
+- **Node.js v25+ compatibility**: `minizlib` v2 breaks on Node 25. Fix: add `"overrides": {"minizlib": "^3.1.0"}` in package.json
+- **macOS arm64 codesign**: electron-builder's ad-hoc signing fails with "resource fork not allowed". Fix: set `"identity": null` in `build.mac` config to skip signing. Users open unsigned apps via right-click → Open
+- **macOS x64**: Builds without signing issues (skips codesign automatically when no identity found)
+
+### License
+
+MIT license from Sabaki. Must preserve original copyright notice. Free to modify, distribute, and use commercially.
