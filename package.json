@@ -92,7 +92,7 @@
     "@sabaki/immutable-gametree": "^1.9.4",
     "@sabaki/sgf": "^3.4.7",
     "@sabaki/shudan": "^1.7.1",
-    "argv-split": "^2.0.1",
+    "argv-split": "^3.2.1",
     "classnames": "^2.2.6",
     "dolm": "^0.7.3-beta",
     "fix-path": "<6.0.0",
